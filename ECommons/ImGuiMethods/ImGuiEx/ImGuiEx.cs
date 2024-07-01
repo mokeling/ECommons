@@ -370,7 +370,7 @@ public static unsafe partial class ImGuiEx
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, TrueColor.Value);
             ImGui.PushStyleColor(ImGuiCol.ButtonActive, TrueColor.Value);
         }
-        else if (col == false)
+        else if(col == false)
         {
             ImGui.PushStyleColor(ImGuiCol.Button, FalseColor.Value);
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, FalseColor.Value);
@@ -403,7 +403,7 @@ public static unsafe partial class ImGuiEx
         if (col != null) ImGui.PopStyleColor(3);
         return ret;
     }
-
+    
     /// <summary>
     /// Converts RGB color to <see cref="Vector4"/> for ImGui
     /// </summary>
@@ -465,7 +465,7 @@ public static unsafe partial class ImGuiEx
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, color);
             ImGui.PushStyleColor(ImGuiCol.ButtonActive, color);
         }
-        if (smallButton ? ImGui.SmallButton(name) : ImGui.Button(name))
+        if (smallButton?ImGui.SmallButton(name):ImGui.Button(name))
         {
             value = !value;
             ret = true;
@@ -622,19 +622,20 @@ public static unsafe partial class ImGuiEx
         {
             headerLastWindowID = currentID;
             headerLastFrame = Svc.PluginInterface.UiBuilder.FrameCount;
-            headerCurrentPos = 2.1f * scale;
-            headerImGuiButtonWidth = 2.1f * scale;
-            
+            headerCurrentPos = 0.25f * ImGui.GetStyle().FramePadding.Length();
+            if (!GetCurrentWindowFlags().HasFlag(ImGuiWindowFlags.NoTitleBar))
+                headerCurrentPos = 1;
+            headerImGuiButtonWidth = 0f;
+            if (CurrentWindowHasCloseButton())
+                headerImGuiButtonWidth += 17 * scale;
             if (!GetCurrentWindowFlags().HasFlag(ImGuiWindowFlags.NoCollapse))
-            {
-                headerCurrentPos += 3f * scale;
-            }
+                headerImGuiButtonWidth += 17 * scale;
         }
 
         options ??= new();
         var prevCursorPos = ImGui.GetCursorPos();
         var buttonSize = new Vector2(20 * scale);
-        var buttonPos = new Vector2((ImGui.GetWindowWidth() - buttonSize.X - headerImGuiButtonWidth * scale * headerCurrentPos) - (ImGui.GetStyle().FramePadding.X * scale) - (ImGui.GetStyle().WindowPadding.X * scale), ImGui.GetScrollY() + 1);
+        var buttonPos = new Vector2((ImGui.GetWindowWidth() - buttonSize.X - headerImGuiButtonWidth * scale * headerCurrentPos) - (ImGui.GetStyle().FramePadding.X * scale), ImGui.GetScrollY() + 1);
         ImGui.SetCursorPos(buttonPos);
         var drawList = ImGui.GetWindowDrawList();
         drawList.PushClipRectFullScreen();
@@ -939,13 +940,6 @@ public static unsafe partial class ImGuiEx
     public static void TextWrapped(Vector4? col, string s)
     {
         ImGui.PushTextWrapPos(0);
-        ImGuiEx.Text(col, s);
-        ImGui.PopTextWrapPos();
-    }
-
-    public static void TextWrapped(Vector4 col, string s, float textWrapWidth)
-    {
-        ImGui.PushTextWrapPos(textWrapWidth);
         ImGuiEx.Text(col, s);
         ImGui.PopTextWrapPos();
     }
@@ -1348,7 +1342,7 @@ public static unsafe partial class ImGuiEx
 
     public static void Text(Vector4? col, string text)
     {
-        if (col == null)
+        if(col == null)
         {
             Text(text);
         }
@@ -1360,11 +1354,11 @@ public static unsafe partial class ImGuiEx
 
     public static void TextCentered(Vector4? col, string text)
     {
-        if (col == null)
+        if (col == null) 
         {
             TextCentered(text);
         }
-        else
+        else 
         {
             TextCentered(col.Value, text);
         }
@@ -1441,18 +1435,16 @@ public static unsafe partial class ImGuiEx
 
     public static bool InputIntBounded(string label, ref int value, int minValue, int maxValue)
     {
-        if (ImGui.InputInt(label, ref value))
+        var val = ImGui.InputInt(label, ref value);
+        if (val)
         {
             if (value > maxValue)
                 value = maxValue;
 
             if (value < minValue)
                 value = minValue;
-
-            return true;
         }
-
-        return false;
+        return val;
     }
 }
 
