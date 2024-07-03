@@ -1,4 +1,4 @@
-﻿using ECommons.DalamudServices;
+using ECommons.DalamudServices;
 using ECommons.EzHookManager;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using System;
@@ -63,6 +63,9 @@ public static unsafe class ClickHelperExtensions
     public static void ClickRadioButton(this AtkComponentRadioButton target, AtkComponentBase* addon, uint which, EventType type = EventType.CHANGE)
         => ClickHelper.ClickAddonComponent(addon, target.OwnerNode, which, type);
 
+    public static void ClickCheckboxButton(this AtkComponentCheckBox target, AtkComponentBase* addon, uint which, EventType type = EventType.CHANGE)
+        => ClickHelper.ClickAddonComponent(addon, target.AtkComponentButton.OwnerNode, which, type);
+
     public static void ClickAddonButton(this AtkComponentButton target, AtkUnitBase* addon, AtkEvent* eventData)
     {
         ClickHelper.Listener.Invoke((nint)addon, eventData->Type, eventData->Param, eventData);
@@ -81,6 +84,7 @@ public static unsafe class ClickHelperExtensions
         addon->ReceiveEvent(evt->Type, (int)evt->Param, btnRes.AtkEventManager.Event);
 
     }
+
     public static void ClickAddonButton(this AtkCollisionNode target, AtkUnitBase* addon)
     {
         var btnRes = target.AtkResNode;
@@ -91,7 +95,6 @@ public static unsafe class ClickHelperExtensions
 
         addon->ReceiveEvent(evt->Type, (int)evt->Param, btnRes.AtkEventManager.Event);
     }
-
 
     public static void ClickRadioButton(this AtkComponentRadioButton target, AtkUnitBase* addon)
     {
