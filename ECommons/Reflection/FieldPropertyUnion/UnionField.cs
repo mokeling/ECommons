@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -11,7 +11,7 @@ public class UnionField : IFieldPropertyUnion
     {
         FieldInfo = fieldInfo;
     }
-    
+
     public string Name => FieldInfo.Name;
 
     public Type UnionType => FieldInfo.FieldType;
@@ -33,6 +33,9 @@ public class UnionField : IFieldPropertyUnion
     public object[] GetCustomAttributes(bool inherit) => FieldInfo.GetCustomAttributes(inherit);
 
     public object[] GetCustomAttributes(Type attributeType, bool inherit) => FieldInfo.GetCustomAttributes(attributeType, inherit);
+
+    public T? GetCustomAttribute<T>() where T : Attribute => FieldInfo.GetCustomAttribute<T>();
+    public IEnumerable<T> GetCustomAttributes<T>() where T : Attribute => FieldInfo.GetCustomAttributes<T>();
 
     public object? GetRawConstantValue() => FieldInfo.GetRawConstantValue();
 

@@ -1,5 +1,6 @@
 using Dalamud.Game.ClientState.Objects.Types;
 using ECommons.MathHelpers;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using System;
 using System.Collections.Generic;
 
@@ -9,7 +10,7 @@ public static unsafe class CharacterFunctions
 {
     public static ushort GetVFXId(void* VfxData)
     {
-        if (VfxData == null) return 0;
+        if(VfxData == null) return 0;
         return *(ushort*)((IntPtr)(VfxData) + 8);
     }
 
@@ -41,7 +42,7 @@ public static unsafe class CharacterFunctions
     public static bool IsCharacterVisible(this ICharacter chr)
     {
         var v = (IntPtr)(((FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)chr.Address)->GameObject.DrawObject);
-        if (v == IntPtr.Zero) return false;
+        if(v == IntPtr.Zero) return false;
         return Bitmask.IsBitSet(*(byte*)(v + 136), 0);
     }
 
@@ -51,17 +52,18 @@ public static unsafe class CharacterFunctions
         //return *(byte*)(chr.Address + 2480 + 704);
     }
 
+    [Obsolete("Use static address from 44 38 35 ?? ?? ?? ?? 74 19 with offset=2 to determine if local player is in water", true)]
     public static bool IsInWater(this ICharacter chr)
     {
-        return *(byte*)(chr.Address + 528 + 940) == 1;
+        return false;
     }
 
     public static CombatRole GetRole(this ICharacter c)
     {
-        if (c.ClassJob.GameData?.Role == 1) return CombatRole.Tank;
-        if (c.ClassJob.GameData?.Role == 2) return CombatRole.DPS;
-        if (c.ClassJob.GameData?.Role == 3) return CombatRole.DPS;
-        if (c.ClassJob.GameData?.Role == 4) return CombatRole.Healer;
+        if(c.ClassJob.GameData?.Role == 1) return CombatRole.Tank;
+        if(c.ClassJob.GameData?.Role == 2) return CombatRole.DPS;
+        if(c.ClassJob.GameData?.Role == 3) return CombatRole.DPS;
+        if(c.ClassJob.GameData?.Role == 4) return CombatRole.Healer;
         return CombatRole.NonCombat;
     }
 

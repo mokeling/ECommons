@@ -1,9 +1,10 @@
-﻿using ECommons.Reflection.FieldPropertyUnion;
+using ECommons.Reflection.FieldPropertyUnion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace ECommons.Reflection;
 #nullable disable
@@ -22,12 +23,12 @@ public static partial class ReflectionHelper
     public static MethodInfo FindStaticMethodInAssemblies(IEnumerable<Assembly> assemblies, string typeName, Type[] typeArguments, string methodName, Type[] methodTypeArguments, Type[] parameterTypes)
     {
         MethodInfo methodInfo = null;
-        foreach (var t in FindTypesInAssemblies(assemblies, [(typeName, typeArguments)]))
+        foreach(var t in FindTypesInAssemblies(assemblies, [(typeName, typeArguments)]))
         {
-            if (t != null)
+            if(t != null)
             {
                 methodInfo = t.GetMethod(methodName, AllFlags, parameterTypes);
-                if (methodInfo != null)
+                if(methodInfo != null)
                 {
                     if(methodTypeArguments != null && methodTypeArguments.Length > 0)
                     {
@@ -35,7 +36,7 @@ public static partial class ReflectionHelper
                         {
                             methodInfo = methodInfo.MakeGenericMethod(methodTypeArguments);
                         }
-                        catch (Exception) 
+                        catch(Exception)
                         {
                             methodInfo = null;
                         }
@@ -59,12 +60,12 @@ public static partial class ReflectionHelper
     public static List<Type> FindTypesInAssemblies(IEnumerable<Assembly> assemblies, IEnumerable<string> typeNames)
     {
         var genericArgs = new List<Type>();
-        foreach (var x in typeNames)
+        foreach(var x in typeNames)
         {
-            foreach (var a in assemblies)
+            foreach(var a in assemblies)
             {
                 var type = a.GetType(x, false);
-                if (type != null)
+                if(type != null)
                 {
                     genericArgs.Add(type);
                     break;
@@ -83,12 +84,12 @@ public static partial class ReflectionHelper
     public static List<Type> FindTypesInAssemblies(IEnumerable<Assembly> assemblies, IEnumerable<(string TypeName, Type[] TypeArguments)> typeNames)
     {
         var genericArgs = new List<Type>();
-        foreach (var x in typeNames)
+        foreach(var x in typeNames)
         {
-            foreach (var a in assemblies)
+            foreach(var a in assemblies)
             {
                 var type = a.GetType(x.TypeName, false);
-                if (type != null)
+                if(type != null)
                 {
                     if(x.TypeArguments != null && x.TypeArguments.Length > 0)
                     {
@@ -97,7 +98,7 @@ public static partial class ReflectionHelper
                             type = type.MakeGenericType(x.TypeArguments);
                             genericArgs.Add(type);
                         }
-                        catch (Exception)
+                        catch(Exception)
                         {
                             type = null;
                         }
@@ -135,7 +136,7 @@ public static partial class ReflectionHelper
         var isAction = methodInfo.ReturnType.Equals((typeof(void)));
         var types = methodInfo.GetParameters().Select(p => p.ParameterType);
 
-        if (isAction)
+        if(isAction)
         {
             getType = Expression.GetActionType;
         }
@@ -145,7 +146,7 @@ public static partial class ReflectionHelper
             types = types.Concat(new[] { methodInfo.ReturnType });
         }
 
-        if (methodInfo.IsStatic)
+        if(methodInfo.IsStatic)
         {
             return Delegate.CreateDelegate(getType(types.ToArray()), methodInfo);
         }
@@ -156,12 +157,14 @@ public static partial class ReflectionHelper
     public static IFieldPropertyUnion[] GetFieldPropertyUnions(this Type type, BindingFlags bindingFlags = BindingFlags.Default)
     {
         var ret = new List<IFieldPropertyUnion>();
-        foreach (var item in type.GetFields(bindingFlags))
+        foreach(var item in type.GetFields(bindingFlags))
         {
+            //if (item.GetCustomAttribute<CompilerGeneratedAttribute>() != null) continue;
             ret.Add(new UnionField(item));
         }
-        foreach (var item in type.GetProperties(bindingFlags))
+        foreach(var item in type.GetProperties(bindingFlags))
         {
+            //if (item.GetCustomAttribute<CompilerGeneratedAttribute>() != null) continue;
             ret.Add(new UnionProperty(item));
         }
         return [.. ret];
@@ -175,7 +178,7 @@ public static partial class ReflectionHelper
             return new UnionField(f);
         }
         var p = type.GetProperty(name, bindingFlags);
-        if (p != null)
+        if(p != null)
         {
             return new UnionProperty(p);
         }

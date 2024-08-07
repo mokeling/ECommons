@@ -1,10 +1,12 @@
-﻿using ECommons.Logging;
+using ECommons;
+using ECommons.Logging;
 using ECommons.Reflection;
+using ECommons.Reflection.FieldPropertyUnion;
 using System;
 using System.Collections.Generic;
-using ECommons;
-using System.Reflection;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace ECommons.Singletons;
 /// <summary>
@@ -12,51 +14,64 @@ namespace ECommons.Singletons;
 /// </summary>
 public static class SingletonServiceManager
 {
-		internal static List<Type> Types = [];
+    internal static List<Type> Types = [];
 
-		internal static void DisposeAll()
-		{
-				foreach(var x in Types)
-				{
-						foreach (var t in x.GetFieldPropertyUnions(ReflectionHelper.AllFlags).Reverse())
-						{
-								var value = t.GetValue(null);
-								if (value is IDisposable disposable)
-								{
-										try
-										{
-												PluginLog.Debug($"Disposing singleton instance of {t.UnionType.FullName}");
-												disposable.Dispose();
-										}
-										catch (Exception e)
-										{
-												e.Log();
-										}
-								}
-								t.SetValue(null, null);
-						}
-				}
-				Types = null!;
-		}
+    internal static void DisposeAll()
+    {
+        foreach(var x in Types)
+        {
+            foreach(var t in x.GetFieldPropertyUnions(ReflectionHelper.AllFlags).Reverse())
+            {
+                var value = t.GetValue(null);
+                var prio = t.GetCustomAttribute<PriorityAttribute>()?.Priority ?? 0;
 
-		public static void Initialize(Type staticType)
-		{
-				Types.Add(staticType);
-				foreach (var x in staticType.GetFieldPropertyUnions(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
-				{
-						var value = x.GetValue(null);
-						if(value == null)
-						{
-								try
-								{
-										PluginLog.Debug($"Creating singleton instance of {x.UnionType.FullName}");
-										x.SetValue(null, Activator.CreateInstance(x.UnionType, true));
-								}
-								catch(Exception e)
-								{
-										e.Log();
-								}
-						}
-				}
-		}
+                if(value is IDisposable disposable)
+                {
+                    try
+                    {
+                        PluginLog.Debug($"Disposing singleton instance of {t.UnionType.FullName}, priority={prio}");
+                        disposable.Dispose();
+                    }
+                    catch(TargetInvocationException tie)
+                    {
+                        tie.Log();
+                        tie.InnerException.Log();
+                    }
+                    catch(Exception e)
+                    {
+                        e.Log();
+                    }
+                }
+                t.SetValue(null, null);
+
+            }
+        }
+        Types = null!;
+    }
+
+    public static void Initialize(Type staticType)
+    {
+        Types.Add(staticType);
+        foreach(var x in staticType.GetFieldPropertyUnions(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+        {
+            var value = x.GetValue(null);
+            if(value == null)
+            {
+                try
+                {
+                    PluginLog.Debug($"Creating singleton instance of {x.UnionType.FullName}");
+                    x.SetValue(null, Activator.CreateInstance(x.UnionType, true));
+                }
+                catch(TargetInvocationException tie)
+                {
+                    tie.Log();
+                    tie.InnerException.Log();
+                }
+                catch(Exception e)
+                {
+                    e.Log();
+                }
+            }
+        }
+    }
 }

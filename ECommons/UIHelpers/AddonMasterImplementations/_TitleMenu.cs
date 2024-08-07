@@ -6,7 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace ECommons.UIHelpers.AddonMasterImplementations;
-public partial class AddonMaster{
+public partial class AddonMaster
+{
     public unsafe class _TitleMenu : AddonMasterBase
     {
         public _TitleMenu(nint addon) : base(addon)
@@ -24,6 +25,7 @@ public partial class AddonMaster{
                 return GenericHelpers.IsScreenReady()
                     && GenericHelpers.IsAddonReady(Base)
                     && Base->UldManager.NodeListCount > 3
+                    && Base->UldManager.NodeList[7]->IsVisible()
                     && Base->GetNodeById(3)->Color.A == 0xFF
                     && !GenericHelpers.TryGetAddonByName<AtkUnitBase>("TitleDCWorldMap", out _)
                     && !GenericHelpers.TryGetAddonByName<AtkUnitBase>("TitleConnect", out _);

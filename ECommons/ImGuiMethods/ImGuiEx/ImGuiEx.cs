@@ -6,6 +6,8 @@ using ECommons.DalamudServices;
 using ECommons.ExcelServices;
 using ECommons.Funding;
 using ECommons.Logging;
+using ECommons.MathHelpers;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 using System;
@@ -23,6 +25,141 @@ namespace ECommons.ImGuiMethods;
 public static unsafe partial class ImGuiEx
 {
     public const ImGuiWindowFlags OverlayFlags = ImGuiWindowFlags.NoNav | ImGuiWindowFlags.NoMouseInputs | ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoFocusOnAppearing;
+    private static Dictionary<string, int> SelectedPages = [];
+
+    public static bool InputInt(float width, string label, ref int? valueNullable, int step = 1, int step_fast = 100, ImGuiInputTextFlags flags = ImGuiInputTextFlags.None)
+    {
+        ImGui.PushID($"NullableInputInt{label}");
+        var enabled = valueNullable != null;
+        var chk = ImGui.Checkbox($"##checkbox", ref enabled);
+        if(chk)
+        {
+            valueNullable = enabled?0:null;
+        }
+        ImGui.PopID();
+        var value = valueNullable ?? 0;
+        if(!enabled) ImGui.BeginDisabled();
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(width);
+        var ret = ImGui.InputInt(label, ref value, step, step_fast, flags);
+        if(ret) valueNullable = value;
+        if(!enabled) ImGui.EndDisabled();
+        return ret || chk;
+    }
+
+    public static Action[] Pagination(Action[] actions, int perPage = 0, int maxPages = 0) => Pagination(GenericHelpers.GetCallStackID(), actions, perPage, maxPages);
+
+    public static Action[] Pagination(string id, Action[] actions, int perPage = 0, int maxPages = 0)
+    {
+        var ret = Pagination(id, actions, out var paginator, perPage, maxPages);
+        paginator?.Invoke();
+        return ret;
+    }
+
+    public static Action[] Pagination(Action[] actions, out Action? paginator, int perPage = 0, int maxPages = 0) => Pagination(GenericHelpers.GetCallStackID(), actions, out paginator, perPage, maxPages);
+
+    public static Action[] Pagination(string id, Action[] actions, out Action? paginator, int perPage = 0, int maxPages = 0)
+    {
+        if(actions.Length == 0)
+        {
+            paginator = null;
+            return [];
+        }
+        if(perPage <= 0)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxPages);
+            perPage = (int)MathF.Ceiling((float)actions.Length / (float)maxPages);
+        }
+        else
+        {
+            var newMaxPages = (int)MathF.Ceiling((float)actions.Length / (float)perPage);
+            if(maxPages > 0 && newMaxPages > maxPages)
+            {
+                perPage = (int)MathF.Ceiling((float)actions.Length / (float)maxPages);
+            }
+            else
+            {
+                maxPages = newMaxPages;
+            }
+        }
+        if(perPage >= actions.Length)
+        {
+            paginator = null;
+            return actions;
+        }
+        if(!SelectedPages.ContainsKey(id)) SelectedPages[id] = 0;
+        if(!SelectedPages[id].InRange(0, maxPages, false)) SelectedPages[id] = 0;
+        void Paginator()
+        {
+            ImGui.PushID(id);
+            var width = ImGui.GetContentRegionAvail().X / maxPages;
+            ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 0f);
+            ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(0, 1));
+            for(var i = 0; i < maxPages; i++)
+            {
+                if(i == maxPages - 1) width = ImGui.GetContentRegionAvail().X;
+                var act = SelectedPages[id] == i;
+                if(act)
+                {
+                    ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetStyle().Colors[(int)ImGuiCol.ButtonActive]);
+                    ImGui.PushStyleColor(ImGuiCol.ButtonHovered, ImGui.GetStyle().Colors[(int)ImGuiCol.ButtonActive]);
+                }
+                if(ImGui.Button($"{i + 1}", new(width, ImGui.GetFrameHeight())))
+                {
+                    SelectedPages[id] = i;
+                }
+                if(act) ImGui.PopStyleColor(2);
+                if(i != maxPages - 1) ImGui.SameLine(0, 0);
+            }
+            ImGui.PopStyleVar(2);
+            ImGui.PopID();
+        }
+        var rangeMin = SelectedPages[id] * perPage;
+        var rangeMax = (SelectedPages[id] + 1) * perPage - 1;
+        if(rangeMax > actions.Length) rangeMax = actions.Length;
+        paginator = Paginator;
+        return actions[rangeMin..rangeMax];
+    }
+
+    public static void TreeNodeCollapsingHeader(string name, Action action)
+    {
+        ImGui.PushID("CollapsingHeaderHelperTable");
+        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, Vector2.Zero);
+        if(ImGui.BeginTable($"{name}", 1, ImGuiTableFlags.Borders | ImGuiTableFlags.NoSavedSettings))
+        {
+            ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            var ret = ImGuiEx.TreeNode(name, ImGuiTreeNodeFlags.NoTreePushOnOpen | ImGuiTreeNodeFlags.Selected);
+            ImGui.PopStyleVar();
+            if(ret)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                if(ImGui.BeginTable($"2{name}", 1, ImGuiTableFlags.NoSavedSettings | ImGuiTableFlags.PadOuterX))
+                {
+                    ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthStretch);
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    try
+                    {
+                        action();
+                    }
+                    catch(Exception e)
+                    {
+                        e.Log();
+                    }
+                    ImGui.EndTable();
+                }
+            }
+            ImGui.EndTable();
+        }
+        else
+        {
+            ImGui.PopStyleVar();
+        }
+        ImGui.PopID();
+    }
 
     public readonly record struct RequiredPluginInfo
     {
@@ -30,72 +167,72 @@ public static unsafe partial class ImGuiEx
         public readonly string? VanityName;
         public readonly Version? MinVersion;
 
-				public RequiredPluginInfo(string internalName) : this()
-				{
-						InternalName = internalName;
-				}
+        public RequiredPluginInfo(string internalName) : this()
+        {
+            InternalName = internalName;
+        }
 
-				public RequiredPluginInfo(string internalName, string vanityName) : this()
-				{
-						InternalName = internalName;
-						VanityName = vanityName;
-				}
+        public RequiredPluginInfo(string internalName, string vanityName) : this()
+        {
+            InternalName = internalName;
+            VanityName = vanityName;
+        }
 
-				public RequiredPluginInfo(string internalName, Version minVersion) : this()
-				{
-						InternalName = internalName;
-						MinVersion = minVersion;
-				}
+        public RequiredPluginInfo(string internalName, Version minVersion) : this()
+        {
+            InternalName = internalName;
+            MinVersion = minVersion;
+        }
 
-				public RequiredPluginInfo(string internalName, string vanityName, Version minVersion)
-				{
-						InternalName = internalName;
-						VanityName = vanityName;
-						MinVersion = minVersion;
-				}
-		}
+        public RequiredPluginInfo(string internalName, string vanityName, Version minVersion)
+        {
+            InternalName = internalName;
+            VanityName = vanityName;
+            MinVersion = minVersion;
+        }
+    }
     public static void PluginAvailabilityIndicator(IEnumerable<RequiredPluginInfo> pluginInfos, string prependText = "The following plugins are required to be installed and enabled:")
     {
-				var pass = pluginInfos.All(info => Svc.PluginInterface.InstalledPlugins.Any(x => x.IsLoaded && x.InternalName == info.InternalName && (info.MinVersion == null || x.Version >= info.MinVersion)));
+        var pass = pluginInfos.All(info => Svc.PluginInterface.InstalledPlugins.Any(x => x.IsLoaded && x.InternalName == info.InternalName && (info.MinVersion == null || x.Version >= info.MinVersion)));
 
         ImGui.SameLine();
-				ImGui.PushFont(UiBuilder.IconFont);
-				ImGuiEx.Text(pass?ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed, pass?FontAwesomeIcon.Check.ToIconString():"\uf00d");
-				ImGui.PopFont();
-				if (ImGui.IsItemHovered())
-				{
-						ImGui.BeginTooltip();
-						ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35f);
+        ImGui.PushFont(UiBuilder.IconFont);
+        ImGuiEx.Text(pass ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed, pass ? FontAwesomeIcon.Check.ToIconString() : "\uf00d");
+        ImGui.PopFont();
+        if(ImGui.IsItemHovered())
+        {
+            ImGui.BeginTooltip();
+            ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35f);
             ImGuiEx.Text(prependText);
-						ImGui.PopTextWrapPos();
-						foreach (var info in pluginInfos)
+            ImGui.PopTextWrapPos();
+            foreach(var info in pluginInfos)
             {
                 var plugin = Svc.PluginInterface.InstalledPlugins.FirstOrDefault(x => x.IsLoaded && x.InternalName == info.InternalName);
                 if(plugin != null)
                 {
                     if(info.MinVersion == null || plugin.Version >= info.MinVersion)
                     {
-                        ImGuiEx.Text(ImGuiColors.ParsedGreen, $"- {info.VanityName ?? info.InternalName}" + (info.MinVersion == null?"":$" {info.MinVersion}+"));
+                        ImGuiEx.Text(ImGuiColors.ParsedGreen, $"- {info.VanityName ?? info.InternalName}" + (info.MinVersion == null ? "" : $" {info.MinVersion}+"));
                     }
                     else
                     {
-												ImGuiEx.Text(ImGuiColors.ParsedGreen, $"- {info.VanityName ?? info.InternalName} ");
+                        ImGuiEx.Text(ImGuiColors.ParsedGreen, $"- {info.VanityName ?? info.InternalName} ");
                         ImGui.SameLine(0, 0);
-												ImGuiEx.Text(ImGuiColors.DalamudRed, $"{info.MinVersion}+ ");
-												ImGui.SameLine(0, 0);
+                        ImGuiEx.Text(ImGuiColors.DalamudRed, $"{info.MinVersion}+ ");
+                        ImGui.SameLine(0, 0);
                         ImGuiEx.Text($"(outdated)");
-										}
+                    }
                 }
                 else
                 {
-										ImGuiEx.Text(ImGuiColors.DalamudRed, $"- {info.VanityName ?? info.InternalName} " + (info.MinVersion == null?"":$"{info.MinVersion}+ "));
-										ImGui.SameLine(0, 0);
-										ImGuiEx.Text($"(not installed)");
-								}
+                    ImGuiEx.Text(ImGuiColors.DalamudRed, $"- {info.VanityName ?? info.InternalName} " + (info.MinVersion == null ? "" : $"{info.MinVersion}+ "));
+                    ImGui.SameLine(0, 0);
+                    ImGuiEx.Text($"(not installed)");
+                }
             }
-						ImGui.EndTooltip();
-				}
-				
+            ImGui.EndTooltip();
+        }
+
     }
 
     public static bool Selectable(Vector4? color, string id)
@@ -112,7 +249,7 @@ public static unsafe partial class ImGuiEx
     {
         ImGuiEx.TreeNode(color, id, ImGuiTreeNodeFlags.NoTreePushOnOpen | (selected ? ImGuiTreeNodeFlags.Selected : ImGuiTreeNodeFlags.None) | extraFlags);
         var ret = ImGui.IsItemClicked(ImGuiMouseButton.Left);
-        if (ret) selected = !selected;
+        if(ret) selected = !selected;
         return ret;
     }
 
@@ -121,15 +258,15 @@ public static unsafe partial class ImGuiEx
     public static bool TreeNode(Vector4? color, string name, ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags.None)
     {
         flags |= ImGuiTreeNodeFlags.SpanFullWidth;
-        if (color != null) ImGui.PushStyleColor(ImGuiCol.Text, color.Value);
+        if(color != null) ImGui.PushStyleColor(ImGuiCol.Text, color.Value);
         var ret = ImGui.TreeNodeEx(name, flags);
-        if (color != null) ImGui.PopStyleColor();
+        if(color != null) ImGui.PopStyleColor();
         return ret;
     }
 
-    public enum JobSelectorOption 
-    { 
-        None, 
+    public enum JobSelectorOption
+    {
+        None,
         /// <summary>
         /// With this option, base jobs will be included as well.
         /// </summary>
@@ -139,7 +276,8 @@ public static unsafe partial class ImGuiEx
         /// </summary>
         ClearFilterOnOpen,
     }
-    static string JobSelectorFilter = "";
+
+    private static string JobSelectorFilter = "";
     /// <summary>
     /// ImGui combo that opens up into a multiple job selector with icons and search field.
     /// </summary>
@@ -167,24 +305,24 @@ public static unsafe partial class ImGuiEx
         {
             preview = selectedJobs.Select(x => x.ToString().Replace("_", " ")).Print();
         }
-        if (ImGui.BeginCombo(id, preview))
+        if(ImGui.BeginCombo(id, preview))
         {
             if(ImGui.IsWindowAppearing() && options?.Contains(JobSelectorOption.ClearFilterOnOpen) == true)
-            ImGui.SetNextItemWidth(150f);
+                ImGui.SetNextItemWidth(150f);
             ImGui.InputTextWithHint("##filter", "Filter...", ref JobSelectorFilter, 50);
-            foreach (var cond in Enum.GetValues<Job>().Where(x => baseJobs || !x.IsUpgradeable()).OrderByDescending(x => Svc.Data.GetExcelSheet<ClassJob>().GetRow((uint)x).Role))
+            foreach(var cond in Enum.GetValues<Job>().Where(x => baseJobs || !x.IsUpgradeable()).OrderByDescending(x => Svc.Data.GetExcelSheet<ClassJob>().GetRow((uint)x).Role))
             {
-                if (cond == Job.ADV) continue;
-                if (jobDisplayFilter != null && !jobDisplayFilter(cond)) continue;
+                if(cond == Job.ADV) continue;
+                if(jobDisplayFilter != null && !jobDisplayFilter(cond)) continue;
                 var name = cond.ToString().Replace("_", " ");
-                if (JobSelectorFilter == "" || name.Contains(JobSelectorFilter, StringComparison.OrdinalIgnoreCase))
+                if(JobSelectorFilter == "" || name.Contains(JobSelectorFilter, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (ThreadLoadImageHandler.TryGetIconTextureWrap((uint)cond.GetIcon(), false, out var texture))
+                    if(ThreadLoadImageHandler.TryGetIconTextureWrap((uint)cond.GetIcon(), false, out var texture))
                     {
                         ImGui.Image(texture.ImGuiHandle, new Vector2(24f));
                         ImGui.SameLine();
                     }
-                    if (ImGuiEx.CollectionCheckbox(name, cond, selectedJobs)) ret = true;
+                    if(ImGuiEx.CollectionCheckbox(name, cond, selectedJobs)) ret = true;
                 }
             }
             ImGui.EndCombo();
@@ -200,7 +338,7 @@ public static unsafe partial class ImGuiEx
         ImGui.PushFont(UiBuilder.IconFont);
         ImGuiEx.Text(color ?? ImGuiColors.DalamudGrey3, symbolOverride ?? FontAwesomeIcon.InfoCircle.ToIconString());
         ImGui.PopFont();
-        if (ImGui.IsItemHovered())
+        if(ImGui.IsItemHovered())
         {
             ImGui.BeginTooltip();
             ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35f);
@@ -210,9 +348,9 @@ public static unsafe partial class ImGuiEx
         }
     }
 
-    
 
-    
+
+
 
     public static bool SliderInt(string label, ref int v, int v_min, int v_max, string format, ImGuiSliderFlags flags)
     {
@@ -259,7 +397,7 @@ public static unsafe partial class ImGuiEx
 
     public static void ActivateIfDoubleClicked()
     {
-        if (ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
+        if(ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
         {
             ImGui.SetKeyboardFocusHere(-1);
         }
@@ -279,7 +417,7 @@ public static unsafe partial class ImGuiEx
     {
         var ret = false;
         var enumValues = Enum.GetValues(typeof(T)).Cast<T>().ToArray();
-        foreach (var x in enumValues) if (!order.Contains(x)) order.Add(x);
+        foreach(var x in enumValues) if(!order.Contains(x)) order.Add(x);
         if(order.Count > enumValues.Length)
         {
             PluginLog.Warning($"EnumOrderer: duplicates or non-existing items found, enum {enumValues.Print()}, list {order.Print()}, cleaning up.");
@@ -288,17 +426,17 @@ public static unsafe partial class ImGuiEx
             order.Clear();
             order.AddRange(set);
         }
-        for (int i = 0; i < order.Count; i++)
+        for(var i = 0; i < order.Count; i++)
         {
             var e = order[i];
             ImGui.PushID($"ECommonsEnumOrderer{id}{e}");
-            if (ImGui.ArrowButton("up", ImGuiDir.Up) && i > 0)
+            if(ImGui.ArrowButton("up", ImGuiDir.Up) && i > 0)
             {
                 (order[i - 1], order[i]) = (order[i], order[i - 1]);
                 ret = true;
             }
             ImGui.SameLine();
-            if (ImGui.ArrowButton("down", ImGuiDir.Down) && i < order.Count - 1)
+            if(ImGui.ArrowButton("down", ImGuiDir.Down) && i < order.Count - 1)
             {
                 (order[i + 1], order[i]) = (order[i], order[i + 1]);
                 ret = true;
@@ -312,9 +450,9 @@ public static unsafe partial class ImGuiEx
 
     public static bool HoveredAndClicked(string tooltip = null, ImGuiMouseButton btn = ImGuiMouseButton.Left, bool requireCtrl = false)
     {
-        if (ImGui.IsItemHovered())
+        if(ImGui.IsItemHovered())
         {
-            if (tooltip != null)
+            if(tooltip != null)
             {
                 SetTooltip(tooltip);
             }
@@ -327,9 +465,9 @@ public static unsafe partial class ImGuiEx
     public static bool ButtonCond(string name, Func<bool> condition)
     {
         var dis = !condition();
-        if (dis) ImGui.BeginDisabled();
+        if(dis) ImGui.BeginDisabled();
         var ret = ImGui.Button(name);
-        if (dis) ImGui.EndDisabled();
+        if(dis) ImGui.EndDisabled();
         return ret;
     }
 
@@ -343,9 +481,9 @@ public static unsafe partial class ImGuiEx
 
     public static bool CollapsingHeader(string text, Vector4? col = null)
     {
-        if (col != null) ImGui.PushStyleColor(ImGuiCol.Text, col.Value);
+        if(col != null) ImGui.PushStyleColor(ImGuiCol.Text, col.Value);
         var ret = ImGui.CollapsingHeader(text);
-        if (col != null) ImGui.PopStyleColor();
+        if(col != null) ImGui.PopStyleColor();
         return ret;
     }
 
@@ -365,7 +503,7 @@ public static unsafe partial class ImGuiEx
         FalseColor ??= EColor.Red;
         var col = value;
         var ret = false;
-        if (col == true)
+        if(col == true)
         {
             ImGui.PushStyleColor(ImGuiCol.Button, TrueColor.Value);
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, TrueColor.Value);
@@ -377,9 +515,9 @@ public static unsafe partial class ImGuiEx
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, FalseColor.Value);
             ImGui.PushStyleColor(ImGuiCol.ButtonActive, FalseColor.Value);
         }
-        if (smallButton ? ImGui.SmallButton(name) : ImGui.Button(name))
+        if(smallButton ? ImGui.SmallButton(name) : ImGui.Button(name))
         {
-            if (value == null || value == false)
+            if(value == null || value == false)
             {
                 value = true;
             }
@@ -389,9 +527,9 @@ public static unsafe partial class ImGuiEx
             }
             ret = true;
         }
-        if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+        if(ImGui.IsItemClicked(ImGuiMouseButton.Right))
         {
-            if (value == null || value == true)
+            if(value == null || value == true)
             {
                 value = false;
             }
@@ -401,10 +539,10 @@ public static unsafe partial class ImGuiEx
             }
             ret = true;
         }
-        if (col != null) ImGui.PopStyleColor(3);
+        if(col != null) ImGui.PopStyleColor(3);
         return ret;
     }
-    
+
     /// <summary>
     /// Converts RGB color to <see cref="Vector4"/> for ImGui
     /// </summary>
@@ -413,7 +551,7 @@ public static unsafe partial class ImGuiEx
     /// <returns>Color in <see cref="Vector4"/> format ready to be used with <see cref="ImGui"/> functions</returns>
     public static Vector4 Vector4FromRGB(this uint col, float alpha = 1.0f)
     {
-        byte* bytes = (byte*)&col;
+        var bytes = (byte*)&col;
         return new Vector4((float)bytes[2] / 255f, (float)bytes[1] / 255f, (float)bytes[0] / 255f, alpha);
     }
 
@@ -425,7 +563,7 @@ public static unsafe partial class ImGuiEx
     /// <returns>Color in <see cref="Vector4"/> format ready to be used with <see cref="ImGui"/> functions</returns>
     public static Vector4 Vector4FromRGBA(this uint col)
     {
-        byte* bytes = (byte*)&col;
+        var bytes = (byte*)&col;
         return new Vector4((float)bytes[3] / 255f, (float)bytes[2] / 255f, (float)bytes[1] / 255f, (float)bytes[0] / 255f);
     }
 
@@ -460,36 +598,36 @@ public static unsafe partial class ImGuiEx
     {
         var col = value;
         var ret = false;
-        if (col)
+        if(col)
         {
             ImGui.PushStyleColor(ImGuiCol.Button, color);
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, color);
             ImGui.PushStyleColor(ImGuiCol.ButtonActive, color);
         }
-        if (smallButton?ImGui.SmallButton(name):ImGui.Button(name))
+        if(smallButton ? ImGui.SmallButton(name) : ImGui.Button(name))
         {
             value = !value;
             ret = true;
         }
-        if (col) ImGui.PopStyleColor(3);
+        if(col) ImGui.PopStyleColor(3);
         return ret;
     }
 
-    public static bool CollectionButtonCheckbox<T>(string name, T value, HashSet<T> collection, bool smallButton = false) => CollectionButtonCheckbox(name, value, collection, EColor.Red, smallButton);
+    public static bool CollectionButtonCheckbox<T>(string name, T value, ICollection<T> collection, bool smallButton = false) => CollectionButtonCheckbox(name, value, collection, EColor.Red, smallButton);
 
-    public static bool CollectionButtonCheckbox<T>(string name, T value, HashSet<T> collection, Vector4 color, bool smallButton = false)
+    public static bool CollectionButtonCheckbox<T>(string name, T value, ICollection<T> collection, Vector4 color, bool smallButton = false)
     {
         var col = collection.Contains(value);
         var ret = false;
-        if (col)
+        if(col)
         {
             ImGui.PushStyleColor(ImGuiCol.Button, color);
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, color);
             ImGui.PushStyleColor(ImGuiCol.ButtonActive, color);
         }
-        if (smallButton ? ImGui.SmallButton(name) : ImGui.Button(name))
+        if(smallButton ? ImGui.SmallButton(name) : ImGui.Button(name))
         {
-            if (col)
+            if(col)
             {
                 collection.Remove(value);
             }
@@ -499,7 +637,7 @@ public static unsafe partial class ImGuiEx
             }
             ret = true;
         }
-        if (col) ImGui.PopStyleColor(3);
+        if(col) ImGui.PopStyleColor(3);
         return ret;
     }
 
@@ -515,11 +653,11 @@ public static unsafe partial class ImGuiEx
     public static void RadioButtonBool(string labelTrue, string labelFalse, ref bool value, bool sameLine = false, Action prefix = null, Action suffix = null)
     {
         prefix?.Invoke();
-        if (ImGui.RadioButton(labelTrue, value)) value = true;
+        if(ImGui.RadioButton(labelTrue, value)) value = true;
         suffix?.Invoke();
-        if (sameLine) ImGui.SameLine();
+        if(sameLine) ImGui.SameLine();
         prefix?.Invoke();
-        if (ImGui.RadioButton(labelFalse, !value)) value = false;
+        if(ImGui.RadioButton(labelFalse, !value)) value = false;
         suffix?.Invoke();
     }
 
@@ -532,15 +670,15 @@ public static unsafe partial class ImGuiEx
     /// <param name="extraFlags">Add extra flags to the table</param>
     public static void EzTableColumns(string id, Action[] values, int? columns = null, ImGuiTableFlags extraFlags = ImGuiTableFlags.None)
     {
-        if (values.Length == 1)
+        if(values.Length == 1)
         {
             GenericHelpers.Safe(values[0]);
         }
         else
         {
-            if (ImGui.BeginTable(id, Math.Max(1, columns ?? values.Length), ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoSavedSettings | extraFlags))
+            if(ImGui.BeginTable(id, Math.Max(1, columns ?? values.Length), ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoSavedSettings | extraFlags))
             {
-                foreach (Action action in values)
+                foreach(var action in values)
                 {
                     ImGui.TableNextColumn();
                     GenericHelpers.Safe(action);
@@ -562,17 +700,17 @@ public static unsafe partial class ImGuiEx
     public static bool ButtonCtrl(string text, Vector2? size, string affix = " (Hold CTRL)")
     {
         var disabled = !ImGui.GetIO().KeyCtrl;
-        if (disabled)
+        if(disabled)
         {
             ImGui.BeginDisabled();
         }
         var name = string.Empty;
-        if (text.Contains($"###"))
+        if(text.Contains($"###"))
         {
             var p = text.Split($"###");
             name = $"{p[0]}{affix}###{p[1]}";
         }
-        else if (text.Contains($"##"))
+        else if(text.Contains($"##"))
         {
             var p = text.Split($"##");
             name = $"{p[0]}{affix}##{p[1]}";
@@ -581,8 +719,8 @@ public static unsafe partial class ImGuiEx
         {
             name = $"{text}{affix}";
         }
-        var ret = size == null?ImGui.Button(name):ImGui.Button(name, size.Value);
-        if (disabled)
+        var ret = size == null ? ImGui.Button(name) : ImGui.Button(name, size.Value);
+        if(disabled)
         {
             ImGui.EndDisabled();
         }
@@ -615,21 +753,21 @@ public static unsafe partial class ImGuiEx
 
     public static bool AddHeaderIcon(string id, FontAwesomeIcon icon, HeaderIconOptions options = null)
     {
-        if (ImGui.IsWindowCollapsed()) return false;
+        if(ImGui.IsWindowCollapsed()) return false;
 
         var scale = ImGuiHelpers.GlobalScale;
         var currentID = ImGui.GetID(0);
-        if (currentID != headerLastWindowID || headerLastFrame != Svc.PluginInterface.UiBuilder.FrameCount)
+        if(currentID != headerLastWindowID || headerLastFrame != Svc.PluginInterface.UiBuilder.FrameCount)
         {
             headerLastWindowID = currentID;
             headerLastFrame = Svc.PluginInterface.UiBuilder.FrameCount;
             headerCurrentPos = 0.25f * ImGui.GetStyle().FramePadding.Length();
-            if (!GetCurrentWindowFlags().HasFlag(ImGuiWindowFlags.NoTitleBar))
+            if(!GetCurrentWindowFlags().HasFlag(ImGuiWindowFlags.NoTitleBar))
                 headerCurrentPos = 1;
             headerImGuiButtonWidth = 0f;
-            if (CurrentWindowHasCloseButton())
+            if(CurrentWindowHasCloseButton())
                 headerImGuiButtonWidth += 17 * scale;
-            if (!GetCurrentWindowFlags().HasFlag(ImGuiWindowFlags.NoCollapse))
+            if(!GetCurrentWindowFlags().HasFlag(ImGuiWindowFlags.NoCollapse))
                 headerImGuiButtonWidth += 17 * scale;
         }
 
@@ -647,15 +785,15 @@ public static unsafe partial class ImGuiEx
         var itemMax = ImGui.GetItemRectMax();
         var halfSize = ImGui.GetItemRectSize() / 2;
         var center = itemMin + halfSize;
-        if (ImGui.IsWindowHovered() && ImGui.IsMouseHoveringRect(itemMin, itemMax, false))
+        if(ImGui.IsWindowHovered() && ImGui.IsMouseHoveringRect(itemMin, itemMax, false))
         {
-            if (!string.IsNullOrEmpty(options.Tooltip))
+            if(!string.IsNullOrEmpty(options.Tooltip))
                 ImGui.SetTooltip(options.Tooltip);
             ImGui.GetWindowDrawList().AddCircleFilled(center, halfSize.X, ImGui.GetColorU32(ImGui.IsMouseDown(ImGuiMouseButton.Left) ? ImGuiCol.ButtonActive : ImGuiCol.ButtonHovered));
-            if (ImGui.IsMouseReleased(options.MouseButton))
+            if(ImGui.IsMouseReleased(options.MouseButton))
                 pressed = true;
 #pragma warning disable
-            if (options.ToastTooltipOnClick && ImGui.IsMouseReleased(options.ToastTooltipOnClickButton))
+            if(options.ToastTooltipOnClick && ImGui.IsMouseReleased(options.ToastTooltipOnClickButton))
                 Notify.Info(options.Tooltip!);
 #pragma warning restore
         }
@@ -691,7 +829,7 @@ public static unsafe partial class ImGuiEx
     {
         var f = (float)value / divider;
         var ret = ImGui.SliderFloat(id, ref f, (float)min / divider, (float)max / divider);
-        if (ret)
+        if(ret)
         {
             value = (int)(f * divider);
         }
@@ -700,7 +838,7 @@ public static unsafe partial class ImGuiEx
 
     public static bool IsKeyPressed(int key, bool repeat)
     {
-        byte repeat2 = (byte)(repeat ? 1 : 0);
+        var repeat2 = (byte)(repeat ? 1 : 0);
         return ImGuiNative.igIsKeyPressed((ImGuiKey)key, repeat2) != 0;
     }
 
@@ -765,17 +903,17 @@ public static unsafe partial class ImGuiEx
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X * percent + mod);
     }
 
-    static Dictionary<string, Box<string>> InputListValuesString = new();
-    public static void InputListString(string name, List<string> list, Dictionary<string, string> overrideValues = null)
+    private static Dictionary<string, Box<string>> InputListValuesString = [];
+    public static void InputListString(string name, List<string> list, Dictionary<string, string> overrideValues = null, string defaultValue = null)
     {
-        if (!InputListValuesString.ContainsKey(name)) InputListValuesString[name] = new("");
+        if(!InputListValuesString.ContainsKey(name)) InputListValuesString[name] = new("");
         InputList(name, list, overrideValues, delegate
         {
             var buttonSize = ImGuiHelpers.GetButtonSize("Add");
             ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - buttonSize.X - ImGui.GetStyle().ItemSpacing.X);
             ImGui.InputText($"##{name.Replace("#", "_")}", ref InputListValuesString[name].Value, 100);
             ImGui.SameLine();
-            if (ImGui.Button("Add"))
+            if(ImGui.Button("Add"))
             {
                 list.Add(InputListValuesString[name].Value);
                 InputListValuesString[name].Value = "";
@@ -783,17 +921,17 @@ public static unsafe partial class ImGuiEx
         });
     }
 
-    static Dictionary<string, Box<uint>> InputListValuesUint = new();
+    private static Dictionary<string, Box<uint>> InputListValuesUint = [];
     public static void InputListUint(string name, List<uint> list, Dictionary<uint, string> overrideValues = null)
     {
-        if (!InputListValuesUint.ContainsKey(name)) InputListValuesUint[name] = new(0);
+        if(!InputListValuesUint.ContainsKey(name)) InputListValuesUint[name] = new(0);
         InputList(name, list, overrideValues, delegate
         {
             var buttonSize = ImGuiHelpers.GetButtonSize("Add");
             ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - buttonSize.X - ImGui.GetStyle().ItemSpacing.X);
             ImGuiEx.InputUint($"##{name.Replace("#", "_")}", ref InputListValuesUint[name].Value);
             ImGui.SameLine();
-            if (ImGui.Button("Add"))
+            if(ImGui.Button("Add"))
             {
                 list.Add(InputListValuesUint[name].Value);
                 InputListValuesUint[name].Value = 0;
@@ -804,26 +942,26 @@ public static unsafe partial class ImGuiEx
     public static void InputList<T>(string name, List<T> list, Dictionary<T, string> overrideValues, Action addFunction)
     {
         var text = list.Count == 0 ? "- No values -" : (list.Count == 1 ? $"{(overrideValues != null && overrideValues.ContainsKey(list[0]) ? overrideValues[list[0]] : list[0])}" : $"- {list.Count} elements -");
-        if (ImGui.BeginCombo(name, text))
+        if(ImGui.BeginCombo(name, text))
         {
             addFunction();
             var rem = -1;
-            for (var i = 0; i < list.Count; i++)
+            for(var i = 0; i < list.Count; i++)
             {
                 var id = $"{name}ECommonsDeleItem{i}";
                 var x = list[i];
                 ImGui.Selectable($"{(overrideValues != null && overrideValues.ContainsKey(x) ? overrideValues[x] : x)}");
-                if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+                if(ImGui.IsItemClicked(ImGuiMouseButton.Right))
                 {
                     ImGui.OpenPopup(id);
                 }
-                if (ImGui.BeginPopup(id))
+                if(ImGui.BeginPopup(id))
                 {
-                    if (ImGui.Selectable("Delete##ECommonsDeleItem"))
+                    if(ImGui.Selectable("Delete##ECommonsDeleItem"))
                     {
                         rem = i;
                     }
-                    if (ImGui.Selectable("Clear (hold shift+ctrl)##ECommonsDeleItem")
+                    if(ImGui.Selectable("Clear (hold shift+ctrl)##ECommonsDeleItem")
                         && ImGui.GetIO().KeyShift && ImGui.GetIO().KeyCtrl)
                     {
                         rem = -2;
@@ -831,11 +969,11 @@ public static unsafe partial class ImGuiEx
                     ImGui.EndPopup();
                 }
             }
-            if (rem > -1)
+            if(rem > -1)
             {
                 list.RemoveAt(rem);
             }
-            if (rem == -2)
+            if(rem == -2)
             {
                 list.Clear();
             }
@@ -852,7 +990,7 @@ public static unsafe partial class ImGuiEx
 
     public static void Tooltip(string s)
     {
-        if (ImGui.IsItemHovered())
+        if(ImGui.IsItemHovered())
         {
             ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35f);
             SetTooltip(s);
@@ -954,31 +1092,31 @@ public static unsafe partial class ImGuiEx
 
     public static Vector4 GetParsedColor(int percent)
     {
-        if (percent < 25)
+        if(percent < 25)
         {
             return ImGuiColors.ParsedGrey;
         }
-        else if (percent < 50)
+        else if(percent < 50)
         {
             return ImGuiColors.ParsedGreen;
         }
-        else if (percent < 75)
+        else if(percent < 75)
         {
             return ImGuiColors.ParsedBlue;
         }
-        else if (percent < 95)
+        else if(percent < 95)
         {
             return ImGuiColors.ParsedPurple;
         }
-        else if (percent < 99)
+        else if(percent < 99)
         {
             return ImGuiColors.ParsedOrange;
         }
-        else if (percent == 99)
+        else if(percent == 99)
         {
             return ImGuiColors.ParsedPink;
         }
-        else if (percent == 100)
+        else if(percent == 100)
         {
             return ImGuiColors.ParsedGold;
         }
@@ -994,33 +1132,33 @@ public static unsafe partial class ImGuiEx
     public static void EzTabBar(string id, string KoFiTransparent, string openTabName, ImGuiTabBarFlags flags, params (string name, Action function, Vector4? color, bool child)[] tabs)
     {
         ImGui.BeginTabBar(id, flags);
-        foreach (var x in tabs)
+        foreach(var x in tabs)
         {
-            if (x.name == null) continue;
-            if (x.color != null)
+            if(x.name == null) continue;
+            if(x.color != null)
             {
                 ImGui.PushStyleColor(ImGuiCol.Text, x.color.Value);
             }
-            if (ImGuiEx.BeginTabItem(x.name, openTabName == x.name?ImGuiTabItemFlags.SetSelected:ImGuiTabItemFlags.None))
+            if(ImGuiEx.BeginTabItem(x.name, openTabName == x.name ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None))
             {
-                if (x.color != null)
+                if(x.color != null)
                 {
                     ImGui.PopStyleColor();
                 }
-                if (x.child) ImGui.BeginChild(x.name + "child");
+                if(x.child) ImGui.BeginChild(x.name + "child");
                 x.function();
-                if (x.child) ImGui.EndChild();
+                if(x.child) ImGui.EndChild();
                 ImGui.EndTabItem();
             }
             else
             {
-                if (x.color != null)
+                if(x.color != null)
                 {
                     ImGui.PopStyleColor();
                 }
             }
         }
-        if (KoFiTransparent != null) PatreonBanner.RightTransparentTab();
+        if(KoFiTransparent != null) PatreonBanner.RightTransparentTab();
         ImGui.EndTabBar();
     }
 
@@ -1031,7 +1169,7 @@ public static unsafe partial class ImGuiEx
         ImGui.PopStyleVar();
     }
 
-    public static Dictionary<string, Box<string>> EnumComboSearch = new();
+    public static Dictionary<string, Box<string>> EnumComboSearch = [];
     /// <summary>
     /// Draws an easy combo selector for an enum with a search field for long lists.
     /// </summary>
@@ -1056,22 +1194,22 @@ public static unsafe partial class ImGuiEx
     public static bool EnumCombo<T>(string name, ref T refConfigField, Func<T, bool> filter = null, IDictionary<T, string> names = null) where T : Enum, IConvertible
     {
         var ret = false;
-        if (ImGui.BeginCombo(name, (names != null && names.TryGetValue(refConfigField, out var n)) ? n : refConfigField.ToString().Replace("_", " ")))
+        if(ImGui.BeginCombo(name, (names != null && names.TryGetValue(refConfigField, out var n)) ? n : refConfigField.ToString().Replace("_", " ")))
         {
             var values = Enum.GetValues(typeof(T));
             Box<string> fltr = null;
-            if (values.Length > 10)
+            if(values.Length > 10)
             {
-                if (!EnumComboSearch.ContainsKey(name)) EnumComboSearch.Add(name, new(""));
+                if(!EnumComboSearch.ContainsKey(name)) EnumComboSearch.Add(name, new(""));
                 fltr = EnumComboSearch[name];
                 ImGuiEx.SetNextItemFullWidth();
                 ImGui.InputTextWithHint($"##{name.Replace("#", "_")}", "Filter...", ref fltr.Value, 50);
             }
-            foreach (var x in values)
+            foreach(var x in values)
             {
                 var equals = EqualityComparer<T>.Default.Equals((T)x, refConfigField);
                 var element = (names != null && names.TryGetValue((T)x, out n)) ? n : x.ToString().Replace("_", " ");
-                if ((filter == null || filter((T)x))
+                if((filter == null || filter((T)x))
                     && (fltr == null || element.Contains(fltr.Value, StringComparison.OrdinalIgnoreCase))
                     && ImGui.Selectable(element, equals)
                     )
@@ -1079,7 +1217,7 @@ public static unsafe partial class ImGuiEx
                     ret = true;
                     refConfigField = (T)x;
                 }
-                if (ImGui.IsWindowAppearing() && equals) ImGui.SetScrollHereY();
+                if(ImGui.IsWindowAppearing() && equals) ImGui.SetScrollHereY();
             }
             ImGui.EndCombo();
         }
@@ -1090,14 +1228,14 @@ public static unsafe partial class ImGuiEx
     {
         var ret = false;
         var values = Enum.GetValues(typeof(T));
-        bool first = true;
-        foreach (var x in values)
+        var first = true;
+        foreach(var x in values)
         {
-            if (!first && sameLine) ImGui.SameLine();
+            if(!first && sameLine) ImGui.SameLine();
             first = false;
             var equals = EqualityComparer<T>.Default.Equals((T)x, refConfigField);
             var element = (names != null && names.TryGetValue((T)x, out var n)) ? n : x.ToString().Replace("_", " ");
-            if ((filter == null || filter((T)x))
+            if((filter == null || filter((T)x))
                 && ImGui.RadioButton(element, equals)
                 )
             {
@@ -1108,25 +1246,25 @@ public static unsafe partial class ImGuiEx
         return ret;
     }
 
-    public static Dictionary<string, Box<string>> ComboSearch = new();
+    public static Dictionary<string, Box<string>> ComboSearch = [];
     public static bool Combo<T>(string name, ref T refConfigField, IEnumerable<T> values, Func<T, bool> filter = null, Dictionary<T, string> names = null)
     {
         var ret = false;
-        if (ImGui.BeginCombo(name, (names != null && names.TryGetValue(refConfigField, out var n)) ? n : refConfigField.ToString()))
+        if(ImGui.BeginCombo(name, (names != null && names.TryGetValue(refConfigField, out var n)) ? n : refConfigField.ToString()))
         {
             Box<string> fltr = null;
-            if (values.Count() > 10)
+            if(values.Count() > 10)
             {
-                if (!ComboSearch.ContainsKey(name)) ComboSearch.Add(name, new(""));
+                if(!ComboSearch.ContainsKey(name)) ComboSearch.Add(name, new(""));
                 fltr = ComboSearch[name];
                 ImGuiEx.SetNextItemFullWidth();
                 ImGui.InputTextWithHint($"##{name}fltr", "Filter...", ref fltr.Value, 50);
             }
-            foreach (var x in values)
+            foreach(var x in values)
             {
                 var equals = EqualityComparer<T>.Default.Equals(x, refConfigField);
                 var element = (names != null && names.TryGetValue(x, out n)) ? n : x.ToString();
-                if ((filter == null || filter(x))
+                if((filter == null || filter(x))
                     && (fltr == null || element.Contains(fltr.Value, StringComparison.OrdinalIgnoreCase))
                     && ImGui.Selectable(element, equals)
                     )
@@ -1134,7 +1272,7 @@ public static unsafe partial class ImGuiEx
                     ret = true;
                     refConfigField = x;
                 }
-                if (ImGui.IsWindowAppearing() && equals) ImGui.SetScrollHereY();
+                if(ImGui.IsWindowAppearing() && equals) ImGui.SetScrollHereY();
             }
             ImGui.EndCombo();
         }
@@ -1165,43 +1303,43 @@ public static unsafe partial class ImGuiEx
 
     public static bool SmallButton(string label, bool enabled = true)
     {
-        if (!enabled) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.6f);
+        if(!enabled) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.6f);
         var ret = ImGui.SmallButton(label) && enabled;
-        if (!enabled) ImGui.PopStyleVar();
+        if(!enabled) ImGui.PopStyleVar();
         return ret;
     }
 
     public static bool Button(string label, bool enabled = true)
     {
-        if (!enabled) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.6f);
+        if(!enabled) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.6f);
         var ret = ImGui.Button(label) && enabled;
-        if (!enabled) ImGui.PopStyleVar();
+        if(!enabled) ImGui.PopStyleVar();
         return ret;
     }
 
     public static bool Button(string label, Vector2 size, bool enabled = true)
     {
-        if (!enabled) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.6f);
+        if(!enabled) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.6f);
         var ret = ImGui.Button(label, size) && enabled;
-        if (!enabled) ImGui.PopStyleVar();
+        if(!enabled) ImGui.PopStyleVar();
         return ret;
     }
 
     public static bool IconButton(string icon, string id = "ECommonsButton", Vector2 size = default, bool enabled = true)
     {
         ImGui.PushFont(UiBuilder.IconFont);
-        if (!enabled) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.6f);
+        if(!enabled) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.6f);
         var result = ImGui.Button($"{icon}##{icon}-{id}", size) && enabled;
-        if (!enabled) ImGui.PopStyleVar();
+        if(!enabled) ImGui.PopStyleVar();
         ImGui.PopFont();
         return result;
     }
 
     public static bool IconButtonWithText(FontAwesomeIcon icon, string id, bool enabled = true)
     {
-        if (!enabled) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.6f);
+        if(!enabled) ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.6f);
         var result = ImGuiComponents.IconButtonWithText(icon, $"{id}") && enabled;
-        if (!enabled) ImGui.PopStyleVar();
+        if(!enabled) ImGui.PopStyleVar();
         return result;
     }
 
@@ -1231,9 +1369,9 @@ public static unsafe partial class ImGuiEx
     public static void InputHex(string name, ref uint hexInt)
     {
         var text = $"{hexInt:X}";
-        if (ImGui.InputText(name, ref text, 50))
+        if(ImGui.InputText(name, ref text, 50))
         {
-            if (uint.TryParse(text.Replace("0x", ""), NumberStyles.HexNumber, null, out var num))
+            if(uint.TryParse(text.Replace("0x", ""), NumberStyles.HexNumber, null, out var num))
             {
                 hexInt = num;
             }
@@ -1243,9 +1381,9 @@ public static unsafe partial class ImGuiEx
     public static void InputHex(string name, ref long hexInt)
     {
         var text = $"{hexInt:X}";
-        if (ImGui.InputText(name, ref text, 50))
+        if(ImGui.InputText(name, ref text, 50))
         {
-            if (long.TryParse(text.Replace("0x", ""), NumberStyles.HexNumber, null, out var num))
+            if(long.TryParse(text.Replace("0x", ""), NumberStyles.HexNumber, null, out var num))
             {
                 hexInt = num;
             }
@@ -1255,9 +1393,9 @@ public static unsafe partial class ImGuiEx
     public static void InputHex(string name, ref byte hexByte)
     {
         var text = $"{hexByte:X}";
-        if (ImGui.InputText(name, ref text, 2))
+        if(ImGui.InputText(name, ref text, 2))
         {
-            if (byte.TryParse(text, NumberStyles.HexNumber, null, out var num))
+            if(byte.TryParse(text, NumberStyles.HexNumber, null, out var num))
             {
                 hexByte = num;
             }
@@ -1267,9 +1405,9 @@ public static unsafe partial class ImGuiEx
     public static void InputUint(string name, ref uint uInt)
     {
         var text = $"{uInt}";
-        if (ImGui.InputText(name, ref text, 16))
+        if(ImGui.InputText(name, ref text, 16))
         {
-            if (uint.TryParse(text, out var num))
+            if(uint.TryParse(text, out var num))
             {
                 uInt = num;
             }
@@ -1286,11 +1424,11 @@ public static unsafe partial class ImGuiEx
     public static void TextCopy(string text)
     {
         ImGui.TextUnformatted(text);
-        if (ImGui.IsItemHovered())
+        if(ImGui.IsItemHovered())
         {
             ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
         }
-        if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
+        if(ImGui.IsItemClicked(ImGuiMouseButton.Left))
         {
 #pragma warning disable
             GenericHelpers.Copy(text);
@@ -1301,11 +1439,11 @@ public static unsafe partial class ImGuiEx
     public static void TextWrappedCopy(string text)
     {
         ImGuiEx.TextWrapped(text);
-        if (ImGui.IsItemHovered())
+        if(ImGui.IsItemHovered())
         {
             ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
         }
-        if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
+        if(ImGui.IsItemClicked(ImGuiMouseButton.Left))
         {
 #pragma warning disable
             GenericHelpers.Copy(text);
@@ -1316,11 +1454,11 @@ public static unsafe partial class ImGuiEx
     public static void TextWrappedCopy(Vector4 col, string text)
     {
         ImGuiEx.TextWrapped(col, text);
-        if (ImGui.IsItemHovered())
+        if(ImGui.IsItemHovered())
         {
             ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
         }
-        if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
+        if(ImGui.IsItemClicked(ImGuiMouseButton.Left))
         {
 #pragma warning disable
             GenericHelpers.Copy(text);
@@ -1355,11 +1493,11 @@ public static unsafe partial class ImGuiEx
 
     public static void TextCentered(Vector4? col, string text)
     {
-        if (col == null) 
+        if(col == null)
         {
             TextCentered(text);
         }
-        else 
+        else
         {
             TextCentered(col.Value, text);
         }
@@ -1367,7 +1505,7 @@ public static unsafe partial class ImGuiEx
 
     public static void ButtonCopy(string buttonText, string copy)
     {
-        if (ImGui.Button(buttonText.Replace("$COPY", copy)))
+        if(ImGui.Button(buttonText.Replace("$COPY", copy)))
         {
 #pragma warning disable
             GenericHelpers.Copy(copy);
@@ -1378,7 +1516,7 @@ public static unsafe partial class ImGuiEx
     public static void CenterColumnText(string text, bool underlined = false)
     {
         ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (ImGui.GetColumnWidth() * 0.5f) - (ImGui.CalcTextSize(text).X * 0.5f));
-        if (underlined)
+        if(underlined)
             TextUnderlined(text);
         else
             Text(text);
@@ -1391,15 +1529,15 @@ public static unsafe partial class ImGuiEx
         ImGui.PopStyleColor();
     }
 
-    public unsafe static bool BeginTabItem(string label, ImGuiTabItemFlags flags)
+    public static unsafe bool BeginTabItem(string label, ImGuiTabItemFlags flags)
     {
-        int num = 0;
+        var num = 0;
         byte* ptr;
-        if (label != null)
+        if(label != null)
         {
             num = Encoding.UTF8.GetByteCount(label);
             ptr = Allocate(num + 1);
-            int utf = GetUtf8(label, ptr, num);
+            var utf = GetUtf8(label, ptr, num);
             ptr[utf] = 0;
         }
         else
@@ -1408,27 +1546,27 @@ public static unsafe partial class ImGuiEx
         }
 
         byte* p_open2 = null;
-        byte num2 = ImGuiNative.igBeginTabItem(ptr, p_open2, flags);
-        if (num > 2048)
+        var num2 = ImGuiNative.igBeginTabItem(ptr, p_open2, flags);
+        if(num > 2048)
         {
             Free(ptr);
         }
         return num2 != 0;
     }
 
-    internal unsafe static byte* Allocate(int byteCount)
+    internal static unsafe byte* Allocate(int byteCount)
     {
         return (byte*)(void*)Marshal.AllocHGlobal(byteCount);
     }
 
-    internal unsafe static void Free(byte* ptr)
+    internal static unsafe void Free(byte* ptr)
     {
         Marshal.FreeHGlobal((IntPtr)ptr);
     }
 
-    internal unsafe static int GetUtf8(string s, byte* utf8Bytes, int utf8ByteCount)
+    internal static unsafe int GetUtf8(string s, byte* utf8Bytes, int utf8ByteCount)
     {
-        fixed (char* chars = s)
+        fixed(char* chars = s)
         {
             return Encoding.UTF8.GetBytes(chars, s.Length, utf8Bytes, utf8ByteCount);
         }

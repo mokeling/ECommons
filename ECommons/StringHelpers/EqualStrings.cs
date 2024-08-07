@@ -5,9 +5,10 @@ using System.Linq;
 namespace ECommons.StringHelpers;
 #nullable disable
 
+[Obsolete("Scheduled to be removed. Please contact the developer if you have an use for it.")]
 public static class EqualStrings
 {
-    static List<HashSet<string>> Equalities = new();
+    private static List<HashSet<string>> Equalities = [];
 
     public static void RegisterEquality(IEnumerable<string> values)
     {
@@ -35,7 +36,7 @@ public static class EqualStrings
     {
         foreach(var x in with)
         {
-            if (Equals(what, x)) return true;
+            if(Equals(what, x)) return true;
         }
         return false;
     }
@@ -46,9 +47,9 @@ public static class EqualStrings
 
     public static bool EqualsAnyIgnoreCase(string what, IEnumerable<string> with)
     {
-        foreach (var x in with)
+        foreach(var x in with)
         {
-            if (Equals(what, x, StringComparison.OrdinalIgnoreCase)) return true;
+            if(Equals(what, x, StringComparison.OrdinalIgnoreCase)) return true;
         }
         return false;
     }

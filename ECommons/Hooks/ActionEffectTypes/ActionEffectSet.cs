@@ -8,59 +8,58 @@ using Action = Lumina.Excel.GeneratedSheets.Action;
 using Character = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 
 namespace ECommons.Hooks.ActionEffectTypes;
-#nullable disable
 
-public unsafe struct ActionEffectSet
+public unsafe readonly record struct ActionEffectSet
 {
-    public Action Action { get; }
+    public readonly Action? Action { get; }
 
-    public Item Item { get; }
+    public readonly Item? Item { get; }
 
-    public EventItem EventItem { get; }
+    public readonly EventItem? EventItem { get; }
 
-    public Mount Mount { get; }
+    public readonly Mount? Mount { get; }
 
-    public ushort IconId { get; }
+    public readonly ushort IconId { get; }
 
-    public string Name { get; }
+    public readonly string Name { get; }
 
-    public IGameObject Target { get; }
+    public readonly IGameObject? Target { get; }
 
-    public IGameObject Source { get; }
+    public readonly IGameObject? Source { get; }
 
-    public Character SourceCharacter { get; }
+    public readonly Character? SourceCharacter { get; }
 
-    public TargetEffect[] TargetEffects { get; }
+    public readonly TargetEffect[] TargetEffects { get; }
 
-    public Vector3 Position { get; }
+    public readonly Vector3 Position { get; }
 
-    public EffectHeader Header { get; }
+    public readonly EffectHeader Header { get; }
 
     public ActionEffectSet(uint sourceID, Character* sourceCharacter, Vector3* pos, EffectHeader* effectHeader, EffectEntry* effectArray, ulong* effectTail)
     {
-        switch (effectHeader->ActionType)
+        switch(effectHeader->ActionType)
         {
             case ActionType.KeyItem:
-                EventItem = Svc.Data.GetExcelSheet<EventItem>().GetRow(effectHeader->ActionID);
+                EventItem = Svc.Data.GetExcelSheet<EventItem>()!.GetRow(effectHeader->ActionID);
                 Name = EventItem?.Singular ?? string.Empty;
                 IconId = EventItem?.Icon ?? 0;
                 break;
 
             case ActionType.Item:
                 var id = effectHeader->ActionID > 1000000 ? effectHeader->ActionID - 1000000 : effectHeader->ActionID;
-                Item = Svc.Data.GetExcelSheet<Item>().GetRow(id);
+                Item = Svc.Data.GetExcelSheet<Item>()!.GetRow(id);
                 Name = Item?.Name ?? string.Empty;
                 IconId = Item?.Icon ?? 0;
                 break;
 
             case ActionType.Mount:
-                Mount = Svc.Data.GetExcelSheet<Mount>().GetRow(effectHeader->ActionID);
+                Mount = Svc.Data.GetExcelSheet<Mount>()!.GetRow(effectHeader->ActionID);
                 Name = Mount?.Singular ?? string.Empty;
                 IconId = Mount?.Icon ?? 0;
                 break;
 
             default:
-                Action = Svc.Data.GetExcelSheet<Action>().GetRow(effectHeader->ActionID);
+                Action = Svc.Data.GetExcelSheet<Action>()!.GetRow(effectHeader->ActionID);
                 Name = Action?.Name ?? string.Empty; ;
 
                 var actionCate = Action?.ActionCategory.Value?.RowId ?? 0;
@@ -78,7 +77,7 @@ public unsafe struct ActionEffectSet
         Header = *effectHeader;
 
         TargetEffects = new TargetEffect[effectHeader->TargetCount];
-        for (int i = 0; i < effectHeader->TargetCount; i++)
+        for(var i = 0; i < effectHeader->TargetCount; i++)
         {
             TargetEffects[i] = new TargetEffect(effectTail[i], effectArray + 8 * i);
         }
@@ -87,9 +86,9 @@ public unsafe struct ActionEffectSet
     public Dictionary<ulong, uint> GetSpecificTypeEffect(ActionEffectType type)
     {
         var result = new Dictionary<ulong, uint>();
-        foreach (var effect in TargetEffects)
+        foreach(var effect in TargetEffects)
         {
-            if (effect.GetSpecificTypeEffect(type, out var e))
+            if(effect.GetSpecificTypeEffect(type, out var e))
             {
                 //Is this value or Damage? IDK about it.
                 result[effect.TargetID] = e.value;
@@ -102,9 +101,9 @@ public unsafe struct ActionEffectSet
     {
         var str = $"S:{Source?.Name}, T:{Target?.Name}, Lock:{Header.AnimationLockTime}";
         str += $"\nType: {Header.ActionType}, Name: {Action?.Name}({Action?.RowId})";
-        if (TargetEffects != null)
+        if(TargetEffects != null)
         {
-            foreach (var effect in TargetEffects)
+            foreach(var effect in TargetEffects)
             {
                 str += "\n" + effect.ToString();
             }

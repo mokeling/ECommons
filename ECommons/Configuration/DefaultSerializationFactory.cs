@@ -21,10 +21,10 @@ public class DefaultSerializationFactory : ISerializationFactory
     {
         var type = typeof(T).GetFieldPropertyUnion("JsonSerializerSettings", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         JsonSerializerSettings settings;
-        if (type != null && type.GetValue(null) is JsonSerializerSettings s)
+        if(type != null && type.GetValue(null) is JsonSerializerSettings s)
         {
             settings = s;
-            PluginLog.Debug($"Using JSON serializer settings from object to perform deserialization");
+            PluginLog.Verbose($"Using JSON serializer settings from object to perform deserialization");
         }
         else
         {
@@ -46,10 +46,10 @@ public class DefaultSerializationFactory : ISerializationFactory
     {
         var type = config.GetType().GetFieldPropertyUnion("JsonSerializerSettings", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         JsonSerializerSettings settings;
-        if (type != null && type.GetValue(null) is JsonSerializerSettings s)
+        if(type != null && type.GetValue(null) is JsonSerializerSettings s)
         {
             settings = s;
-            PluginLog.Debug($"Using JSON serializer settings from object to perform serialization");
+            PluginLog.Verbose($"Using JSON serializer settings from object to perform serialization");
         }
         else
         {
