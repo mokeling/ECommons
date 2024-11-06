@@ -688,7 +688,7 @@ public static unsafe partial class ImGuiEx
         }
     }
 
-    public static bool ButtonCtrl(string text, string affix = " (按住 Ctrl)") => ButtonCtrl(text, null, affix);
+    public static bool ButtonCtrl(string text, string affix = " (鎸変綇 Ctrl)") => ButtonCtrl(text, null, affix);
 
     /// <summary>
     /// Button that is disabled unless CTRL key is held
@@ -697,7 +697,7 @@ public static unsafe partial class ImGuiEx
     /// <param name="size">Optional size of the button, null if size is to be calculated automatically</param>
     /// <param name="affix">Button affix</param>
     /// <returns></returns>
-    public static bool ButtonCtrl(string text, Vector2? size, string affix = " (按住 Ctrl)")
+    public static bool ButtonCtrl(string text, Vector2? size, string affix = " (鎸変綇 Ctrl)")
     {
         var disabled = !ImGui.GetIO().KeyCtrl;
         if(disabled)
