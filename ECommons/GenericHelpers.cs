@@ -230,10 +230,10 @@ public static unsafe partial class GenericHelpers
         return sb.ToString();
     }
 
-    [Obsolete($"Use {nameof(SafeSelect)}")]
+    [Obsolete($"使用 {nameof(SafeSelect)}")]
     public static T GetOrDefault<T>(this IList<T> List, int index) => SafeSelect(List, index);
 
-    [Obsolete($"Use {nameof(SafeSelect)}")]
+    [Obsolete($"使用 {nameof(SafeSelect)}")]
     public static T GetOrDefault<T>(this T[] Array, int index) => SafeSelect(Array, index);
 
     /// <summary>
