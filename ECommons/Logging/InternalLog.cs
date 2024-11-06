@@ -104,7 +104,7 @@ public class InternalLog
         }
         ImGui.SameLine();
         ImGuiEx.SetNextItemFullWidth(-30);
-        ImGui.InputTextWithHint("##Filter", "Filter...", ref Search, 100);
+        ImGui.InputTextWithHint("##Filter", "ɸѡ...", ref Search, 100);
         ImGui.SameLine();
         if(ImGuiEx.IconButton(Dalamud.Interface.FontAwesomeIcon.Filter, "##LogFilter")) ImGui.OpenPopup("filter_window");
         ImGuiEx.Tooltip("Log Filter");

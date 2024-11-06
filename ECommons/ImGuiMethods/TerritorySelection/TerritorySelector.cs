@@ -135,7 +135,7 @@ public unsafe class TerritorySelector : Window
                 if(ImGui.BeginTabItem(x.Key))
                 {
                     ImGui.SetNextItemWidth(200f);
-                    ImGui.InputTextWithHint($"##search", "Filter...", ref Filter, 50);
+                    ImGui.InputTextWithHint($"##search", "筛选...", ref Filter, 50);
                     ImGui.SameLine();
                     ImGui.Checkbox("Only selected", ref OnlySelected);
                     if(Player.Available)
@@ -143,7 +143,7 @@ public unsafe class TerritorySelector : Window
                         ImGui.SameLine();
                         if(!IsSingleSelection)
                         {
-                            if(ImGuiEx.CollectionCheckbox($"Current: {ExcelTerritoryHelper.GetName(Svc.ClientState.TerritoryType)}", Svc.ClientState.TerritoryType, SelectedTerritories))
+                            if(ImGuiEx.CollectionCheckbox($"当前: {ExcelTerritoryHelper.GetName(Svc.ClientState.TerritoryType)}", Svc.ClientState.TerritoryType, SelectedTerritories))
                             {
                                 try
                                 {
