@@ -309,7 +309,7 @@ public static unsafe partial class ImGuiEx
         {
             if(ImGui.IsWindowAppearing() && options?.Contains(JobSelectorOption.ClearFilterOnOpen) == true)
                 ImGui.SetNextItemWidth(150f);
-            ImGui.InputTextWithHint("##filter", "ɸѡ...", ref JobSelectorFilter, 50);
+            ImGui.InputTextWithHint("##filter", "Filter...", ref JobSelectorFilter, 50);
             foreach(var cond in Enum.GetValues<Job>().Where(x => baseJobs || !x.IsUpgradeable()).OrderByDescending(x => Svc.Data.GetExcelSheet<ClassJob>().GetRow((uint)x).Role))
             {
                 if(cond == Job.ADV) continue;
@@ -1203,7 +1203,7 @@ public static unsafe partial class ImGuiEx
                 if(!EnumComboSearch.ContainsKey(name)) EnumComboSearch.Add(name, new(""));
                 fltr = EnumComboSearch[name];
                 ImGuiEx.SetNextItemFullWidth();
-                ImGui.InputTextWithHint($"##{name.Replace("#", "_")}", "ɸѡ...", ref fltr.Value, 50);
+                ImGui.InputTextWithHint($"##{name.Replace("#", "_")}", "Filter...", ref fltr.Value, 50);
             }
             foreach(var x in values)
             {
@@ -1258,7 +1258,7 @@ public static unsafe partial class ImGuiEx
                 if(!ComboSearch.ContainsKey(name)) ComboSearch.Add(name, new(""));
                 fltr = ComboSearch[name];
                 ImGuiEx.SetNextItemFullWidth();
-                ImGui.InputTextWithHint($"##{name}fltr", "ɸѡ...", ref fltr.Value, 50);
+                ImGui.InputTextWithHint($"##{name}fltr", "Filter...", ref fltr.Value, 50);
             }
             foreach(var x in values)
             {
