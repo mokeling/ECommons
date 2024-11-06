@@ -309,7 +309,7 @@ public static unsafe partial class ImGuiEx
         {
             if(ImGui.IsWindowAppearing() && options?.Contains(JobSelectorOption.ClearFilterOnOpen) == true)
                 ImGui.SetNextItemWidth(150f);
-            ImGui.InputTextWithHint("##filter", "Filter...", ref JobSelectorFilter, 50);
+            ImGui.InputTextWithHint("##filter", "筛选...", ref JobSelectorFilter, 50);
             foreach(var cond in Enum.GetValues<Job>().Where(x => baseJobs || !x.IsUpgradeable()).OrderByDescending(x => Svc.Data.GetExcelSheet<ClassJob>().GetRow((uint)x).Role))
             {
                 if(cond == Job.ADV) continue;
@@ -688,7 +688,7 @@ public static unsafe partial class ImGuiEx
         }
     }
 
-    public static bool ButtonCtrl(string text, string affix = " (Hold CTRL)") => ButtonCtrl(text, null, affix);
+    public static bool ButtonCtrl(string text, string affix = " (按住 Ctrl)") => ButtonCtrl(text, null, affix);
 
     /// <summary>
     /// Button that is disabled unless CTRL key is held
@@ -697,7 +697,7 @@ public static unsafe partial class ImGuiEx
     /// <param name="size">Optional size of the button, null if size is to be calculated automatically</param>
     /// <param name="affix">Button affix</param>
     /// <returns></returns>
-    public static bool ButtonCtrl(string text, Vector2? size, string affix = " (Hold CTRL)")
+    public static bool ButtonCtrl(string text, Vector2? size, string affix = " (按住 Ctrl)")
     {
         var disabled = !ImGui.GetIO().KeyCtrl;
         if(disabled)
@@ -1203,7 +1203,7 @@ public static unsafe partial class ImGuiEx
                 if(!EnumComboSearch.ContainsKey(name)) EnumComboSearch.Add(name, new(""));
                 fltr = EnumComboSearch[name];
                 ImGuiEx.SetNextItemFullWidth();
-                ImGui.InputTextWithHint($"##{name.Replace("#", "_")}", "Filter...", ref fltr.Value, 50);
+                ImGui.InputTextWithHint($"##{name.Replace("#", "_")}", "筛选...", ref fltr.Value, 50);
             }
             foreach(var x in values)
             {
@@ -1258,7 +1258,7 @@ public static unsafe partial class ImGuiEx
                 if(!ComboSearch.ContainsKey(name)) ComboSearch.Add(name, new(""));
                 fltr = ComboSearch[name];
                 ImGuiEx.SetNextItemFullWidth();
-                ImGui.InputTextWithHint($"##{name}fltr", "Filter...", ref fltr.Value, 50);
+                ImGui.InputTextWithHint($"##{name}fltr", "筛选...", ref fltr.Value, 50);
             }
             foreach(var x in values)
             {

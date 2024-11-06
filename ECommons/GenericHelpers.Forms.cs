@@ -31,7 +31,7 @@ public static partial class GenericHelpers
 #else
                 ImGui.SetClipboardText("");
 #endif
-                if(!silent) Notify.Success("Clipboard cleared");
+                if(!silent) Notify.Success("剪贴板已清空");
             }
             else
             {
@@ -40,7 +40,7 @@ public static partial class GenericHelpers
 #else
                 ImGui.SetClipboardText(text);
 #endif
-                if(!silent) Notify.Success("Text copied to clipboard");
+                if(!silent) Notify.Success("文本已复制到剪贴板");
             }
             return true;
         }
@@ -48,9 +48,9 @@ public static partial class GenericHelpers
         {
             if(!silent)
             {
-                Notify.Error($"Error copying to clipboard:\n{e.Message}\nPlease try again");
+                Notify.Error($"复制到剪贴板时出错:\n{e.Message}\n请重试");
             }
-            PluginLog.Warning($"Error copying to clipboard:");
+            PluginLog.Warning($"复制到剪贴板时出错:");
             e.LogWarning();
             return false;
         }
@@ -78,9 +78,9 @@ public static partial class GenericHelpers
         {
             if(!silent)
             {
-                Notify.Error($"Error pasting from clipboard:\n{e.Message}\nPlease try again");
+                Notify.Error($"从剪贴板粘贴时出错:\n{e.Message}\n请重试");
             }
-            PluginLog.Warning($"Error pasting from clipboard:");
+            PluginLog.Warning($"从剪贴板粘贴时出错d:");
             e.LogWarning();
             return null;
         }
